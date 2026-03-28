@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Excel Cleaner Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="logo">X</div>
+
+        <h1>Excel Cleaner Pro</h1>
+        <p class="subtitle">
+            Upload messy Excel sheets and instantly convert them into clean, structured, professional files.
+        </p>
+
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="upload-box">
+                <p>Choose your Excel file below</p>
+                <input type="file" name="file" accept=".xlsx,.xls" required>
+            </div>
+
+            <button type="submit">Upload and Clean</button>
+        </form>
+
+        <div class="features">
+            <div class="feature-card">Removes empty rows</div>
+            <div class="feature-card">Cleans column names</div>
+            <div class="feature-card">Formats mixed dates</div>
+            <div class="feature-card">Removes duplicates</div>
+        </div>
+
+        <div class="info">
+            Supported formats: <span>.xlsx</span>, <span>.xls</span>
+        </div>
+    </div>
+</body>
+</html>
