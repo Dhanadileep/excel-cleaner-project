@@ -84,13 +84,13 @@ def clean_excel_data(df):
     # Clean column names
     df.columns = [clean_column_name(col) for col in df.columns]
 
-    # Trim spaces
+    # Trim spaces in object columns
     for col in df.columns:
         if df[col].dtype == "object":
             df[col] = df[col].astype(str).str.strip()
 
-    # Replace null-like values
-    df = df.replace(["", "nan", "None", "null", "<NA>"], pd.NA)
+    # Replace null-like values and blank spaces
+    df = df.replace(["", " ", "nan", "None", "null", "<NA>"], pd.NA)
 
     # Remove duplicates
     df = df.drop_duplicates()
@@ -102,41 +102,59 @@ def clean_excel_data(df):
             df[col] = df[col].apply(format_mixed_date)
             date_columns.append(col)
 
-    # ------------------ SALARY FIX (NO DECIMAL) ------------------
-    if "salary" in df.columns:
-        df["salary"] = pd.to_numeric(df["salary"], errors="coerce")
-        avg_salary = df["salary"].mean()
+    # ------------------ NUMERICAL COLUMNS: FILL WITH AVERAGE ------------------
+    for col in df.columns:
+        if col in date_columns or col == "employee_id":
+            continue
 
-        if pd.notna(avg_salary):
-            df["salary"] = df["salary"].fillna(round(avg_salary))
-            df["salary"] = df["salary"].astype(int)   # 🔥 IMPORTANT
+        numeric_series = pd.to_numeric(df[col], errors="coerce")
 
-    # ------------------ AGE FIX ------------------
-    if "age" in df.columns:
-        df["age"] = pd.to_numeric(df["age"], errors="coerce")
-        avg_age = df["age"].mean()
+        # If column is fully/mostly numeric, treat as numeric
+        if numeric_series.notna().sum() > 0 and numeric_series.notna().sum() >= len(df[col]) / 2:
+            df[col] = numeric_series
+            avg_value = df[col].mean()
 
-        if pd.notna(avg_age):
-            df["age"] = df["age"].fillna(round(avg_age))
-            df["age"] = df["age"].astype(int)
+            if pd.notna(avg_value):
+                df[col] = df[col].fillna(avg_value)
+
+                # Keep salary and age as integers
+                if col in ["salary", "age"]:
+                    df[col] = df[col].round().astype(int)
+            else:
+                df[col] = df[col].fillna(0)
+
+    # ------------------ CATEGORICAL COLUMNS: FILL WITH MODE ------------------
+    for col in df.columns:
+        if col in date_columns or col == "employee_id":
+            continue
+
+        # Skip numeric columns already handled
+        numeric_series = pd.to_numeric(df[col], errors="coerce")
+        if numeric_series.notna().sum() > 0 and numeric_series.notna().sum() >= len(df[col]) / 2:
+            continue
+
+        mode_value = df[col].mode(dropna=True)
+        if not mode_value.empty:
+            df[col] = df[col].fillna(mode_value[0])
+        else:
+            df[col] = df[col].fillna("N/A")
+
+    # ------------------ DATE COLUMNS: FILL WITH MODE ------------------
+    for col in date_columns:
+        mode_value = df[col].mode(dropna=True)
+        if not mode_value.empty:
+            df[col] = df[col].fillna(mode_value[0])
+        else:
+            df[col] = df[col].fillna("N/A")
 
     # ------------------ UNIQUE IDS ------------------
     df = make_employee_ids_unique(df, "employee_id")
 
-    # ------------------ FILL REMAINING ------------------
-    for col in df.columns:
-
-        if col in ["salary", "age", "employee_id"]:
-            continue
-
-        if col in date_columns:
-            df[col] = df[col].fillna("N/A")
-            continue
-
-        if df[col].dtype == "object":
-            df[col] = df[col].fillna("N/A")
-        else:
-            df[col] = df[col].fillna(0)
+    # ------------------ EMPLOYEE ID OPTIONAL FILL ------------------
+    if "employee_id" in df.columns:
+        mode_value = df["employee_id"].mode(dropna=True)
+        if not mode_value.empty:
+            df["employee_id"] = df["employee_id"].fillna(mode_value[0])
 
     return df
 
